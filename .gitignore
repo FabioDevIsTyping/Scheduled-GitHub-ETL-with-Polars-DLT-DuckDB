@@ -1,0 +1,41 @@
+﻿# --------------------------
+# Python byte-code / cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Editor / IDE settings
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Logs & coverage
+*.log
+.coverage*
+htmlcov/
+.cache/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Local data & artifacts
+data/*.duckdb          # output database
+data/**/*.parquet
+artifacts/             # GitHub Actions upload-artifact output
+
+# Secrets & configs
+.env
+*.pem
+*.key
+
+# OS cruft
+.DS_Store
+Thumbs.db
