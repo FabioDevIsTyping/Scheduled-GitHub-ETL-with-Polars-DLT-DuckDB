@@ -1,0 +1,11 @@
+# Target Repos
+org = "" 
+repos = [
+    "apache/spark",
+    "pandas-dev/pandas",
+    "pola-rs/polars"
+]
+
+# Runtime options
+per_page = 100
+active_days = 180
