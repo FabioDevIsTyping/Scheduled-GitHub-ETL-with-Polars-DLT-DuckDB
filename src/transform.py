@@ -64,3 +64,9 @@ def _add_derived_columns(df : pl.DataFrame) -> pl.DataFrame:
     )
     return df
 
+def _filter_active_repos(df: pl.DataFrame) -> pl.DataFrame:
+    """
+        Filter the DataFrame to include only active repositories based on the last push date.
+    """
+    return df.filter(pl.col("is_active") == True)
+
