@@ -28,7 +28,7 @@ RATE_CUSHION = 10
 
 # Fields to extract from the repository data
 FIELDS = (
-    "id", "full_name", "private", "fork", "fork_count" , "stargazers_count",
+    "id", "full_name", "private", "fork", "forks_count" , "stargazers_count",
     "watchers_count", "language", "license", "created_at",
     "updated_at", "pushed_at", "size", "default_branch", "open_issues_count",
     "topics", "visibility", "archived", "disabled", "has_issues"
@@ -36,7 +36,7 @@ FIELDS = (
 
 # Configuration file path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONFIG_PATH  = PROJECT_ROOT / "config.toml"        
+CONFIG_PATH  = PROJECT_ROOT / "config" / "config.toml"        
 
 def load_config() -> dict:
     """Load configuration from a TOML file."""
