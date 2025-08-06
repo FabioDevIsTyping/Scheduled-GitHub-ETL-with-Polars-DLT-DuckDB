@@ -35,7 +35,8 @@ FIELDS = (
 )
 
 # Configuration file path
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.toml"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_PATH  = PROJECT_ROOT / "config.toml"        
 
 def load_config() -> dict:
     """Load configuration from a TOML file."""

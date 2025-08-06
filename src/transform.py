@@ -1,80 +1,89 @@
-from __future__ import annotations # Ensure compatibility with Python 3.7+
-# Standard library imports
+from __future__ import annotations
+
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-import polars as pl 
+import polars as pl
 
-from src.extract import load_config 
+from src.extract import load_config, fetch_all
 
-# Constants for the transform script
-CFG = load_config()
-ACTIVE_DAYS = CFG.get("active_days", 180)  # Default to 180 days if not specified
-HERE = Path(__file__).resolve().parent
+# Configuration
+# Load configuration settings
+CFG          = load_config()
+ACTIVE_DAYS  = int(CFG.get("active_days", 180))
+HERE         = Path(__file__).resolve().parent
 
-def _to_polars(df: List[Dict[str, Any]]) -> pl.DataFrame:
-    """"
-        Convert a list of dictionaries to a Polars DataFrame,
-        handling datetime and numeric fields appropriately,
-        ensuring compatibility with Polars' data types, this is because Github API returns data in a format that may not directly map to Polars types,
-        sometimes inteerpreting datetime as string and numeric fields as strings.
+#  Helpers 
+def _to_pl(rows: List[Dict[str, Any]]) -> pl.DataFrame:
     """
-    if not df:
-        return pl.DataFrame()  # Return an empty DataFrame if input is empty
+    Convert list-of-dict rows to Polars and enforce dtypes.
+    """
+    if not rows:
+        return pl.DataFrame()
 
-    df = pl.DataFrame(df)
+    df = pl.DataFrame(rows)
 
-    # Convert datetime fields to Polars datetime type
-    time_columns = [
-        "created_at", "updated_at", "pushed_at"]
-    for col in time_columns:
+    # Datetimes
+    for col in ("created_at", "updated_at", "pushed_at"):
         if col in df.columns:
             df = df.with_columns(
-                pl.col(col).str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ", strict=False)
+                pl.col(col).str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%SZ")
             )
-    
-    # Cast explicitly numeric columns 
-    numeric_columns = [
-        "id", "stargazers_count", "watchers_count", "size", "open_issues_count", "fork_count" ]
-    for col in numeric_columns:
-        if col in df.columns:
-            df = df.with_columns(
-                pl.col(col).cast(pl.Int64)
-            )
-    
-    df.describe() # Debugging: print schema and sample data
-    return df 
 
-def _add_derived_columns(df : pl.DataFrame) -> pl.DataFrame:
-    """"
-        Add derived columns to the Dataframe such as:
-        - days_since_last_push: Number of days since the last push
-        - star_fork_ratio: Ratio of stars to forks
-    """
-    now = datetime.now(timezone.utc)
-    df = df.with_columns(
-        [
-            (now - pl.col("pushed_at")).dt.days.alias("days_since_last_push"),
-            (pl.col("stargazers_count")/pl.col("fork_count")).alias("star_fork_ratio")
-        ]
-    )
+    # Numerics
+    for col in (
+        "id", "stargazers_count", "forks_count",
+        "size", "open_issues_count"
+    ):
+        if col in df.columns:
+            df = df.with_columns(pl.col(col).cast(pl.Int64))
+
     return df
 
-def _filter_active_repos(df: pl.DataFrame) -> pl.DataFrame:
-    """
-        Filter the DataFrame to include only active repositories based on the last push date.
-    """
-    return df.filter(pl.col("days_since_last_push") <= ACTIVE_DAYS)
 
-def transform(df: List[Dict[str, Any]]) -> pl.DataFrame:
+def _add_metrics(df: pl.DataFrame) -> pl.DataFrame:
     """
-        Transform the input data by converting it to a Polars DataFrame,
-        adding derived columns, and filtering for active repositories.
+    Add derived analytic columns.
+    - days_since_last_push: days since the last push
+    - star_fork_ratio: ratio of stars to forks
     """
-    df_polars = _to_polars(df)
-    df_polars = _add_derived_columns(df_polars)
-    df_polars = _filter_active_repos(df_polars)
-    
-    return df_polars
+    now = datetime.now(timezone.utc)
+
+    df = df.with_columns([
+        (pl.lit(now) - pl.col("pushed_at")).dt.total_days()
+          .alias("days_since_last_push"),
+
+        (pl.when(pl.col("forks_count") > 0)
+             .then(pl.col("stargazers_count") / pl.col("forks_count"))
+             .otherwise(None))
+          .alias("star_fork_ratio")
+    ])
+    return df
+
+
+def _filter_active(df: pl.DataFrame, active_days: int) -> pl.DataFrame:
+    """
+    Filter repositories that have been active in the last `active_days`.
+    """
+    return df.filter(pl.col("days_since_last_push") <= active_days)
+
+# Orchestrator
+def transform(rows: List[Dict[str, Any]],
+              active_days: int | None = None) -> pl.DataFrame:
+    """
+    Convert raw rows into a tidy Polars DataFrame.
+    """
+    active_days = active_days or ACTIVE_DAYS
+    df = _to_pl(rows)
+    df = _add_metrics(df)
+    df = _filter_active(df, active_days)
+    return df
+
+# Script mode
+if __name__ == "__main__":
+    data = fetch_all()
+    tidy = transform(data)
+    print(tidy.head())
+    print(f"\nRows after filter: {len(tidy)}")
