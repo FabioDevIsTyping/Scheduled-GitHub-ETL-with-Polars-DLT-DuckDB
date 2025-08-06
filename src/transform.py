@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
-from datetime import datetime 
+from datetime import datetime, UTC
 
 import polars as pl
 
