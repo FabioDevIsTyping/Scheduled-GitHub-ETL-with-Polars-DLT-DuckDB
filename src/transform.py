@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+from datetime import datetime 
 
 import polars as pl
 
@@ -49,16 +50,17 @@ def _add_metrics(df: pl.DataFrame) -> pl.DataFrame:
     - days_since_last_push: days since the last push
     - star_fork_ratio: ratio of stars to forks
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()       
 
     df = df.with_columns([
+        # Calculate days since last push
         (pl.lit(now) - pl.col("pushed_at")).dt.total_days()
           .alias("days_since_last_push"),
 
         (pl.when(pl.col("forks_count") > 0)
              .then(pl.col("stargazers_count") / pl.col("forks_count"))
-             .otherwise(None))
-          .alias("star_fork_ratio")
+             .otherwise(None)
+             .alias("star_fork_ratio"))
     ])
     return df
 
