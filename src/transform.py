@@ -47,5 +47,20 @@ def _to_polars(df: List[Dict[str, Any]]) -> pl.DataFrame:
     df.describe() # Debugging: print schema and sample data
     return df 
 
-
+def _add_derived_columns(df : pl.DataFrame) -> pl.DataFrame:
+    """"
+        Add derived columns to the Dataframe such as:
+        - days_since_last_push: Number of days since the last push
+        - is_active: Boolean indicating if the repository is active based on the last push date
+        - star_fork_ratio: Ratio of stars to forks
+    """
+    now = datetime.now(timezone.utc)
+    df = df.with_columns(
+        [
+            (now - pl.col("pushed_at")).dt.days.alias("days_since_last_push"),
+            (pl.col("pushed_at") >= (now - timedelta(days=ACTIVE_DAYS))).alias("is_active")
+            (pl.col("stargazers_count")/pl.col("fork_count")).alias("star_fork_ratio")
+        ]
+    )
+    return df
 
